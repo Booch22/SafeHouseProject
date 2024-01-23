@@ -3,22 +3,44 @@ import math
 import numpy as np
 from skimage import color
 from skimage import measure
+import matplotlib.pyplot as plt
 
 
 
-def size_threshold( binary_img : np.ndarray, min_area : float, max_area : float ) :
-    obj = 0
+def size_threshold( binary_img : np.ndarray, min_area : float, max_area : float, semi : bool ) :
+    obj = 0 # ใช้นับวัตถุที่เจอ
     labels = measure.label( binary_img ) # เลเบลวัตถุที่เจอ
     props = measure.regionprops( labels ) # ฟังก์ชันที่ใช้ในการคำนวณคุณสมบัติของวัตถุ 
+    obj_area = [] # เก็บค่าพื้นที่ของแต่ละวัตถุ
+    sum_all_area = 0 # ใช้รวมค่าทั้งหมดของ obj_area
+    detect_decision = True # เงื่อนไขตัดสินใจในการตรวจจับ
 
-    # ค้นหาวัตถุและตัดสว่นที่ไม่จำเป็นออกไปจากภาพ
+    # ค้นหาวัตถุและตัดส่วนที่ไม่จำเป็นออกไปจากภาพ
     for prop in props :
         obj += 1
         #print(f'Label: {prop.label} >> Object size: {prop.area}')
-        if prop.area > max_area or prop.area < min_area :
-            coords = prop.coords[:, ::-1]  # สลับตำแหน่งของ (x, y) เป็น (y, x) ??
-            cv2.fillPoly( binary_img, [coords], 0 )  # ถมดำวัตถุที่เข้าเงื่อนไข
+        
+        # ถมดำวัตถุที่เข้าเงื่อนไข
+        if semi == False :
+            if prop.area > max_area or prop.area < min_area :
+                coords = prop.coords[:, ::-1]  # สลับตำแหน่งของ (x, y) เป็น (y, x) ??
+                cv2.fillPoly( binary_img, [coords], 0 )  # ถมดำ
+        # ตรวจจับมือและเวอร์เนียร์
+        elif semi == True :
+            obj_area.append( prop.area )
+
+    
+    # นำค่า area ทั้งหมดที่เจอมารวมกันและส่งค่าตัดสินใจ
+    if semi == True :
+        sum_all_area = sum( obj_area )
+        print( f'sum of all = {sum_all_area}\n\n' )
+
+        # หากค่าความต่างเกิน ไม่ต้องตรวจจับ
+        if sum_all_area > 57000 :
+            detect_decision = False
+    
     #print( f'Object founded >> {obj}\n' )
+    return detect_decision
             
 
 
@@ -68,7 +90,7 @@ def detect_object( image_for_draw_rec : np.ndarray, target_img : np.ndarray ) :
     centr = 0 # ใช้ในการเลื่อนลำดับข้อมูลที่เก็บใน centroid
     for contour in contours:
         x, y, w, h = cv2.boundingRect( contour ) # หากกรอบสี่เหลี่ยมเพื่อตรวจจับวัตถุ
-        if (w / h) >= 0.8 and (w / h) <= 1.3   : # หาความสมมาตรของวัตถุ เพราะถ้าเป็นหมุดจะมีความกว้างและความยาวเท่ากัน
+        if (w / h) >= 0.85 and (w / h) < 1.2   : # หาความสมมาตรของวัตถุ เพราะถ้าเป็นหมุดจะมีความกว้างและความยาวเท่ากัน
             #print( f"w / h = {w / h}" )
             centroid_x.append( x + int( (w / 2) ) ) # เก็บตำแหน่งตรงกลางของแกน x
             centroid_y.append( y + int( (h / 2) ) ) # เก็บตำแหน่งตรงกลางของแกน y
@@ -117,7 +139,8 @@ def marker( select_cam : int ) :
         text_position = ( int((x1 + x2) / 2), int(((y1 + y2) / 2) + 15) ) # ตำแหน่งที่จะแสดงค่า distance
         # คำนวณระยะห่างระหว่างไม้บรรทัด (euclidean_distance)
         ruler_pixels.append( math.sqrt( (x1 - x2)**2 + (y1 - y2)**2 ) )
-        cv2.putText( img_for_show_distance, f"{round(ruler_pixels[0], 3)}", text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0) )
+        #cv2.putText( img_for_show_distance, f"{round(ruler_pixels[0], 3)}", text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0) )
+        cv2.putText( img_for_show_distance, f"OK close this window", text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), thickness = 1 )
 
     # มาร์กตำแหน่งของระยะไม้บรรทัด
     def mark_position( event, x, y, flags, param ) :
@@ -133,7 +156,6 @@ def marker( select_cam : int ) :
                     ruler_distance( marker_img, clicked_position[0], clicked_position[1] ) # คำนวณระยะห่างระหว่างจุดมาร์ก
                     cv2.line( marker_img, clicked_position[0], clicked_position[1], color = (0, 0, 0), thickness = 1 )
                     cv2.imshow( "marker image", marker_img )
-
 
     ruler_milimeter = 10 # กำหนดความยาวของไม้บรรทัดเป็น 20 mm.
     ruler_pixels = [] # ความยาวของไม้บรรทัด เก็บเป็น pixels
@@ -187,7 +209,7 @@ blue_threshold = { 'cam 1' : 120, 'cam 2' : 124, 'cam 3' : 124 }
 
 
 # กำหนดเฟรมเริ่มต้นของรูปภาพ
-start_frame = 0
+start_frame = 47
 # กำหนดขนาดรูปที่จะแสดง
 re_w, re_h = 1536, 864
 # สร้างหน้าต่างสำหรับ morphology operation
@@ -239,7 +261,8 @@ for frame in range( 1500 ) :
     # cam 3
     blur_blue_img_3 = cv2.GaussianBlur( b_img_3, (5, 5), 10 )
     blur_black_img_3 = cv2.GaussianBlur( k_img_3, (5, 5), 10 )
-
+    # สำหรับมือและเวอร์เนียร์
+    gauss_blur_semi_img = cv2.GaussianBlur( a_img_3, (5, 5), 10 )
 
     # ทำการ thresholding
     # cam 1
@@ -250,8 +273,10 @@ for frame in range( 1500 ) :
     # cam 3
     ret_k_3, thresh_black_img_3 = cv2.threshold( blur_black_img_3, black_threshold, 255, cv2.THRESH_BINARY )
     ret_b_3, thresh_blue_img_3 = cv2.threshold( blur_blue_img_3, blue_threshold['cam 3'], 255, cv2.THRESH_BINARY_INV )
-
+    # สำหรับมือและเวอร์เนียร์
+    ret_semi, thresh_semi_img = cv2.threshold( gauss_blur_semi_img, 125, 255, cv2.THRESH_BINARY_INV )
     
+
     # morphology operation
     # cam 1
     opening_green_img_1 = cv2.morphologyEx( thresh_green_img_1, cv2.MORPH_OPEN, kernel )
@@ -268,49 +293,52 @@ for frame in range( 1500 ) :
     closing_black_img_3 = cv2.morphologyEx( opening_black_img_3, cv2.MORPH_CLOSE, kernel )
 
 
-
     # size threshold
     # cam 1
-    size_threshold( closing_green_img_1, 150, 250 ) # นับวัตถุที่เป็นสีขาว
-    size_threshold( closing_blue_img_1, 80, 250 ) # นับวัตถุที่เป็นสีขาว
+    detect = size_threshold( closing_green_img_1, 150, 250, False ) # นับวัตถุที่เป็นสีขาว
+    detect = size_threshold( closing_blue_img_1, 80, 250, False ) # นับวัตถุที่เป็นสีขาว
     # cam 2
-    size_threshold( closing_blue_img_2, 150, 350 )
+    detect = size_threshold( closing_blue_img_2, 150, 350, False )
     # cam 3
-    size_threshold( closing_black_img_3, 250, 600 ) # นับวัตถุที่เป็นสีขาว
-    size_threshold( closing_blue_img_3, 300, 700 ) # นับวัตถุที่เป็นสีขาว
+    detect = size_threshold( closing_black_img_3, 250, 600, False ) # นับวัตถุที่เป็นสีขาว
+    detect = size_threshold( closing_blue_img_3, 300, 700, False ) # นับวัตถุที่เป็นสีขาว
+    # มือ ไม้บรรทัด เวอร์เนียร์
+    detect = size_threshold( thresh_semi_img, 350, 600, True )
     
-    
-    # ตรวจความกลมของวัตถุ หากวัตถุไม่กลมให้ถมดำ
-    # cam 1
-    check_circularity( closing_green_img_1 )
-    check_circularity( closing_blue_img_1 )
-    # cam 2
-    check_circularity( closing_blue_img_2 )
-    # cam 3
-    check_circularity( closing_black_img_3 )
-    check_circularity( closing_blue_img_3 )
-    
-    
-    # ตรวจจับหมุดและเหรียญ
-    # cam 1
-    centr_x_green_1, centr_y_green_1 = detect_object( sub_image_1, closing_green_img_1 )
-    centr_x_blue_1, centr_y_blue_1 = detect_object( sub_image_1, closing_blue_img_1 )
-    # cam 2
-    centr_x_blue_2, centr_y_blue_2 = detect_object( sub_image_2, closing_blue_img_2 )
-    # cam 3
-    centr_x_black_3, centr_y_black_3 = detect_object( sub_image_3, closing_black_img_3 )
-    centr_x_blue_3, centr_y_blue_3 = detect_object( sub_image_3, closing_blue_img_3 )
+
+    # ถ้าไม่มีมือและเวอร์เนียร์เข้ามาให้วัดหมุด
+    if detect == True :
+        # ตรวจความกลมของวัตถุ หากวัตถุไม่กลมให้ถมดำ
+        # cam 1
+        check_circularity( closing_green_img_1 )
+        check_circularity( closing_blue_img_1 )
+        # cam 2
+        check_circularity( closing_blue_img_2 )
+        # cam 3
+        check_circularity( closing_black_img_3 )
+        check_circularity( closing_blue_img_3 )
+        
+        
+        # ตรวจจับหมุดและเหรียญ
+        # cam 1
+        centr_x_green_1, centr_y_green_1 = detect_object( sub_image_1, closing_green_img_1 )
+        centr_x_blue_1, centr_y_blue_1 = detect_object( sub_image_1, closing_blue_img_1 )
+        # cam 2
+        centr_x_blue_2, centr_y_blue_2 = detect_object( sub_image_2, closing_blue_img_2 )
+        # cam 3
+        centr_x_black_3, centr_y_black_3 = detect_object( sub_image_3, closing_black_img_3 )
+        centr_x_blue_3, centr_y_blue_3 = detect_object( sub_image_3, closing_blue_img_3 )
 
 
-    # วัดระยะของหมุด
-    # cam 1
-    calculate_distance( sub_image_1, centr_x_blue_1, centr_y_blue_1, ruler_mill_1, ruler_pix_1 )
-    calculate_distance( sub_image_1, centr_x_green_1, centr_y_green_1, ruler_mill_1, ruler_pix_1 )
-    # cam 2
-    calculate_distance( sub_image_2, centr_x_blue_2, centr_y_blue_2, ruler_mill_2, ruler_pix_2 )
-    # cam 3
-    calculate_distance( sub_image_3, centr_x_blue_3, centr_y_blue_3, ruler_mill_3, ruler_pix_3 )
-    calculate_distance( sub_image_3, centr_x_black_3, centr_y_black_3, ruler_mill_3, ruler_pix_3 )
+        # วัดระยะของหมุด
+        # cam 1
+        calculate_distance( sub_image_1, centr_x_blue_1, centr_y_blue_1, ruler_mill_1, ruler_pix_1 )
+        calculate_distance( sub_image_1, centr_x_green_1, centr_y_green_1, ruler_mill_1, ruler_pix_1 )
+        # cam 2
+        calculate_distance( sub_image_2, centr_x_blue_2, centr_y_blue_2, ruler_mill_2, ruler_pix_2 )
+        # cam 3
+        calculate_distance( sub_image_3, centr_x_blue_3, centr_y_blue_3, ruler_mill_3, ruler_pix_3 )
+        calculate_distance( sub_image_3, centr_x_black_3, centr_y_black_3, ruler_mill_3, ruler_pix_3 )
     
 
     # แสดงภาพที่ได้จาก Image Thresholding
