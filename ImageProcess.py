@@ -162,7 +162,7 @@ class processing():
             cv2.putText( img_for_show_distance, f"{round(ruler_pixels[0], 3)}", text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0) )
 
         # มาร์กตำแหน่งของระยะไม้บรรทัด
-        def mark_position(self, event, x, y, flags, param ) :
+        def mark_position( event, x, y, flags, param ) :
             # เมื่อคลิกซ้าย
             if event == cv2.EVENT_LBUTTONDOWN : 
                 # คลิกได้ 2 ครั้ง
