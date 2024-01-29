@@ -75,6 +75,7 @@ class processing():
 
 
 
+    # แปลงภาพสีเป็นภาพcmyk
     def bgr_2_cmyk(self, image : np.ndarray ) :
         ############ # Convert from BGR to CMYK color ################
         # Make float and divide by 255 to give BGRdash
@@ -118,6 +119,7 @@ class processing():
 
 
 
+    # คำนวณระยะห่างระหว่างจุดสองจุด
     def calculate_distance( self, img_for_show_distance : np.ndarray, centroid_x : list, centroid_y : list, 
                             ruler_millimeter : float, ruler_pixels : float ) :
         # check
@@ -144,6 +146,7 @@ class processing():
 
 
 
+    # ฟังก์ชั่นสำหรับมาร์คตำแหน่งและเก็บค่าไม้บรรทัด
     def marker(self, select_cam, frame) :
         # คำนวณระยะที่วัดได้จากไม้บรรทัด โดยค่าที่ได้จะมีหน่วยเป็น pixels
         def ruler_distance( img_for_show_distance : np.ndarray, point_1 : tuple, point_2 : tuple ) :
@@ -159,7 +162,7 @@ class processing():
             cv2.putText( img_for_show_distance, f"{round(ruler_pixels[0], 3)}", text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0) )
 
         # มาร์กตำแหน่งของระยะไม้บรรทัด
-        def mark_position(self, event, x, y, flags, param ) :
+        def mark_position( event, x, y, flags, param ) :
             # เมื่อคลิกซ้าย
             if event == cv2.EVENT_LBUTTONDOWN : 
                 # คลิกได้ 2 ครั้ง
@@ -206,6 +209,7 @@ class processing():
 
 
 
+    # เริ่มการทำงานของโปรแกรม
     def start_program( self, input_image : np.array ,ruler_mill_1, ruler_pix_1,ruler_mill_2, ruler_pix_2,ruler_mill_3, ruler_pix_3 ) :
         # สร้างหน้าต่างสำหรับ morphology operation
         kernel = np.ones( (5, 5), np.uint8 )
